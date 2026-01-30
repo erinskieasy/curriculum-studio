@@ -35,7 +35,7 @@ export default function App() {
   const [adminCode, setAdminCode] = useState("");
   const [isFullPageMode, setIsFullPageMode] = useState(false);
 
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+  // apiKey moved to server-side (process.env.OPENAI_API_KEY)
   const secretCode = import.meta.env.VITE_ADMIN_CODE || "CURRICULUM2026";
   const stageIndex = useMemo(
     () => STAGES.findIndex((item) => item.id === stage),
@@ -69,11 +69,7 @@ export default function App() {
     setCurriculum("");
 
     try {
-      if (!apiKey) {
-        throw new Error(
-          "Missing API key. Add VITE_OPENAI_API_KEY to a .env.local file."
-        );
-      }
+      // API key check moved to server-side
 
       const stageFlow = async () => {
         setStage(2);
@@ -84,35 +80,17 @@ export default function App() {
       };
 
       const requestCurriculum = async () => {
-        const response = await fetch(
-          "https://api.openai.com/v1/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-              model: "gpt-4o-mini",
-              temperature: 0.8,
-              messages: [
-                {
-                  role: "system",
-                  content:
-                    "You are a curriculum designer. Create a table of contents.",
-                },
-                {
-                  role: "user",
-                  content: `Create a curriculum table of contents for the topic: "${topic}". Provide 6-10 modules. Each module should include 2-4 lesson bullets. Keep it concise and imaginative.`,
-                },
-              ],
-            }),
-          }
-        );
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ topic }),
+        });
 
         if (!response.ok) {
-          const details = await response.text();
-          throw new Error(`OpenAI error: ${response.status} ${details}`);
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Server error: ${response.status}`);
         }
 
         const data = await response.json();
@@ -192,8 +170,8 @@ export default function App() {
               stageIndex > index
                 ? "complete"
                 : stageIndex === index
-                ? "active"
-                : "idle";
+                  ? "active"
+                  : "idle";
             return (
               <div key={item.id} className={`stage-card ${status}`}>
                 <div className="stage-index">{String(item.id).padStart(2, "0")}</div>
